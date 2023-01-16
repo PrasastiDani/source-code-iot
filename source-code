@@ -1,0 +1,140 @@
+// Library yang dibutuhkan
+#include <DHT.h>
+#include <FirebaseESP8266.h>
+#include <ESP8266WiFi.h>
+#include <WiFiClient.h>
+#include "ThingSpeak.h"
+// Mendefinisikan pin
+const char apiKey[] = "EB8O249TM782T9TV";
+long myChannelNumber = 1993968;
+#define relay2 D2
+#define relay D1
+#define DHTPIN D5
+#define Bzr D3
+#define DHTTYPE DHT11
+DHT dht11(DHTPIN, DHTTYPE);
+float h, t;
+WiFiClient client;
+// Isian koneksi Firebase
+
+#define FIREBASE_HOST "https://esp8266new-14394-default-
+rtdb.firebaseio.com/"
+
+#define FIREBASE_AUTH
+"rMib4Ppssrlc2Xk2GXyhYoFza7KMcQ4Pw3UxWK6u"
+//Nama Wifi
+#define WIFI_SSID "Redmi Note 8"
+#define WIFI_PASSWORD "orataksandi"
+// mendeklarasikan objek data dari FirebaseESP8266
+FirebaseData firebaseData;
+void setup() {
+Serial.begin(9600);
+ThingSpeak.begin(client);
+dht11.begin();
+pinMode (relay, OUTPUT);
+
+pinMode (relay2, OUTPUT);
+pinMode(Bzr, OUTPUT);
+// Koneksi ke Wifi
+WiFi.begin(WIFI_SSID, WIFI_PASSWORD);
+Serial.print("connecting");
+while (WiFi.status() != WL_CONNECTED) {
+Serial.print(".");
+delay(500);
+}
+Serial.println();
+Serial.print("Connected with IP: ");
+Serial.println(WiFi.localIP());
+Serial.println();
+Firebase.begin(FIREBASE_HOST, FIREBASE_AUTH);
+}
+void loop(){
+// Sensor DHT11 membaca suhu dan kelembaban
+float t = dht11.readTemperature();
+float h = dht11.readHumidity();
+// Memeriksa apakah sensor berhasil mambaca suhu dan kelembaban
+if (isnan(t) || isnan(h) ) {
+Serial.println("Gagal membaca sensor DHT11");
+delay(500);
+return;
+}
+// Menampilkan suhu dan kelembaban kepada serial monitor
+Serial.print("Suhu: ");
+Serial.print(t);
+Serial.println(" *C");
+Serial.print("Kelembaban: ");
+Serial.print(h);
+Serial.println(" %");
+Serial.println();
+if (Firebase.getString(firebaseData, "/Path_read/relayy")) {
+
+if (firebaseData.dataType() == "string")
+{
+String RLY = firebaseData.stringData();
+if (RLY == "1") {
+Serial.println("relay ON");
+digitalWrite(relay, HIGH); }
+else if (RLY == "0") {
+Serial.println("relay OFF");
+digitalWrite(relay, LOW);
+}
+else {Serial.println("Salah kode! isi dengan data 0/1");}
+}
+}
+if (Firebase.getString(firebaseData, "/Path_read/relayy2")) { //misal database
+diberikan nama relayy2
+if (firebaseData.dataType() == "string")
+{
+String RLY = firebaseData.stringData();
+if (RLY == "1") {
+Serial.println("relay ON");
+digitalWrite(relay2, HIGH);
+digitalWrite(Bzr, HIGH); }
+else if (RLY == "0") {
+Serial.println("relay2 OFF");
+digitalWrite(relay2, LOW);
+digitalWrite(Bzr, LOW);
+}
+else {Serial.println("Salah kode! isi dengan data 0/1");}
+}
+}
+// logic fuzy
+float tValue = (100-t);
+float hValue = (100-h);
+float division = 100;
+float value1 = (tValue/division);
+float value2 =(hValue/division);
+float value3 =(value1 + value2);
+float value4 = (value3 / 3);
+
+// Memberikan status suhu dan kelembaban kepada firebase
+if (Firebase.setFloat(firebaseData, "/Path_read/temperature", t)){
+Serial.println("Suhu terkirim");
+} else{
+Serial.println("Suhu tidak terkirim");
+Serial.println("Karena: " + firebaseData.errorReason());
+}
+if (Firebase.setFloat(firebaseData, "/Path_read/humidity", h)){
+Serial.println("Kelembaban terkirim");
+Serial.println();
+} else{
+Serial.println("Kelembaban tidak terkirim");
+Serial.println("Karena: " + firebaseData.errorReason());
+}
+if (Firebase.setFloat(firebaseData, "/Path_read/valuee", value4)){
+Serial.println("Kelembaban terkirim");
+Serial.println();
+} else{
+Serial.println("Kelembaban tidak terkirim");
+Serial.println("Karena: " + firebaseData.errorReason());
+}
+
+if ("api.thingspeak.com") // "184.106.153.149" or api.thingspeak.com
+{
+Serial.println("Temperature: " + (String) t);
+Serial.println("Humidity: " + (String) h);
+ThingSpeak.writeField(myChannelNumber, 1, t, apiKey);
+ThingSpeak.writeField(myChannelNumber, 2, h, apiKey);
+}
+delay(1000);
+}
